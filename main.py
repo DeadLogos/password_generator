@@ -1,9 +1,13 @@
 import tkinter as tk
 import config
-from generating import generate_password, EmptyGeneratingRangeError
+from generating import EmptyGeneratingRangeError, generate_multiple_passwords
+from loading import dump_passwords, DumpDataError
 
 
 class MainFrame(tk.Frame):
+    """
+        Main frame of the application responsible for user input.
+    """
     def __init__(self):
         super().__init__(background=config.MAIN_COLOR)
         self.grid_columnconfigure(0, minsize=250)
@@ -23,10 +27,10 @@ class MainFrame(tk.Frame):
                                                                     var=self.is_digit_enabled)
         self.grid_rowconfigure(2, pad=30)
 
-        self.is_chars_enabled = tk.BooleanVar()
-        self.chars_label, self.chars_check = self._set_option_field(text='Буквы:', row=3,
-                                                                    var=self.is_chars_enabled)
-        self.chars_check.select()
+        self.is_letters_enabled = tk.BooleanVar()
+        self.letters_label, self.letters_check = self._set_option_field(text='Буквы:', row=3,
+                                                                        var=self.is_letters_enabled)
+        self.letters_check.select()
 
         self.is_marks_enabled = tk.BooleanVar()
         self.marks_label, self.marks_check = self._set_option_field(text='Специальные символы: ',
@@ -49,20 +53,49 @@ class MainFrame(tk.Frame):
         return label, checkbox
 
 
+class ValidationError(Exception):
+    """
+    Unable to validate input data
+    """
+    pass
+
+
+PositiveInt = int
+
+
+def validate_positive_int(row_data: str) -> PositiveInt:
+    """
+    Validate input string and return a positive integer.
+    """
+    try:
+        n = int(row_data)
+        assert n > 0
+        return n
+    except (AssertionError, ValueError):
+        raise ValidationError
+
+
 class GenerationFrame(tk.Frame):
+    """
+    Frame responsible for generating passwords based on user input.
+    """
     def __init__(self, mf: MainFrame):
+        """
+        Initialize the generation frame with buttons and display area.
+        :param mf: MainFrame instance for reference to user input
+        """
         super().__init__(background=config.MAIN_COLOR)
         self._main_frame = mf
         self._set_generation_button()
         self._set_display_entry()
 
     @property
-    def length(self) -> str:
-        return self._main_frame.length_entry.get()
+    def length(self) -> PositiveInt:
+        return validate_positive_int(self._main_frame.length_entry.get())
 
     @property
-    def quantity(self) -> str:
-        return self._main_frame.quantity_entry.get()
+    def quantity(self) -> PositiveInt:
+        return validate_positive_int(self._main_frame.quantity_entry.get())
 
     @property
     def is_digits_enabled(self) -> bool:
@@ -70,38 +103,53 @@ class GenerationFrame(tk.Frame):
 
     @property
     def is_letters_enabled(self) -> bool:
-        return self._main_frame.is_chars_enabled.get()
-    
+        return self._main_frame.is_letters_enabled.get()
+
     @property
     def is_marks_enabled(self) -> bool:
         return self._main_frame.is_marks_enabled.get()
 
     def _set_display_entry(self):
-        self.display_entry = tk.Entry(self, bg=config.FILL_COLOR, font=config.FONT_STYLE, width=25)
+        self.display_entry = tk.Entry(self, bg=config.FILL_COLOR, font=config.FONT_STYLE, width=40)
         self.display_entry.pack(pady=20)
 
     def _set_generation_button(self):
         self.button = tk.Button(self, text='Сгенерировать', font=config.FONT_STYLE,
                                 background=config.MAIN_COLOR, activebackground=config.FILL_COLOR,
                                 padx=20, pady=15,
-                                command=self._display_password)
+                                command=self._display_msg)
         self.button.pack(pady=30)
 
-    def _display_password(self):
+    def _display_msg(self):
         self.display_entry.delete(0, tk.END)
-        try:
-            length = int(self.length)
-            quantity = int(self.quantity)
-            msg = generate_password(length, self.is_digits_enabled,
-                                    self.is_letters_enabled, self.is_marks_enabled)
-        except ValueError:
-            msg = 'Укажите целое число'
-        except EmptyGeneratingRangeError:
-            msg = 'Выберите набор символов'
+        msg = generate_passwords(self)
         self.display_entry.insert(0, msg)
 
 
+def generate_passwords(frame: GenerationFrame) -> str:
+    """
+    Generate passwords based on user input and save them to a file.
+    :param frame: GenerationFrame instance with user input data
+    :return: Message indicating success or failure of password generation
+    """
+    try:
+        passwords = generate_multiple_passwords(frame.quantity, frame.length, frame.is_digits_enabled,
+                                                frame.is_letters_enabled, frame.is_marks_enabled)
+        dump_passwords(passwords)
+        msg = f'Пароли выгружены в файл'
+    except ValidationError:
+        msg = 'Укажите целое положительное число'
+    except EmptyGeneratingRangeError:
+        msg = 'Выберите набор символов'
+    except DumpDataError:
+        msg = 'Ошибка при выгрузке в файл'
+    return msg
+
+
 class App(tk.Tk):
+    """
+        Main application window.
+    """
     def __init__(self):
         super().__init__()
         self._window_configuration()
@@ -109,13 +157,12 @@ class App(tk.Tk):
         self.main_frame.grid(row=0, column=0)
         self.gen_frame = GenerationFrame(self.main_frame)
         self.gen_frame.grid(row=1, column=0)
-        # self._set_output_label()
 
     def _window_configuration(self):
         self.geometry(config.WINDOW_SIZE)
         self.minsize(400, 450)
         self.title(config.APP_TITLE)
-        logo = tk.PhotoImage(file='logo.png')
+        logo = tk.PhotoImage(file=config.LOGO_FILENAME)
         self.iconphoto(False, logo)
         self.config(bg=config.MAIN_COLOR, borderwidth=20)
 
