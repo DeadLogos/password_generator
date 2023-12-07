@@ -5,3 +5,4 @@ MAIN_COLOR = '#a2cc9d'
 FILL_COLOR = '#c2debf'
 FONT_STYLE = ('Palatino', 13)
 DUMP_FILENAME = 'passwords.txt'
+DESKTOP_DIR = 'C:/Users/iwtfa/OneDrive/Рабочий стол'

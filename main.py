@@ -8,6 +8,7 @@ class MainFrame(tk.Frame):
     """
         Main frame of the application responsible for user input.
     """
+
     def __init__(self):
         super().__init__(background=config.MAIN_COLOR)
         self.grid_columnconfigure(0, minsize=250)
@@ -23,19 +24,23 @@ class MainFrame(tk.Frame):
         self.quantity_entry.insert(0, '1')
 
         self.is_digit_enabled = tk.BooleanVar()
-        self.digit_label, self.digit_check = self._set_option_field(text='Цифры:', row=2,
-                                                                    var=self.is_digit_enabled)
+        self.digit_label, self.digit_check = self._set_option_field(
+            text='Цифры:', row=2, var=self.is_digit_enabled)
         self.grid_rowconfigure(2, pad=30)
 
         self.is_letters_enabled = tk.BooleanVar()
-        self.letters_label, self.letters_check = self._set_option_field(text='Буквы:', row=3,
-                                                                        var=self.is_letters_enabled)
+        self.letters_label, self.letters_check = self._set_option_field(
+            text='Буквы:', row=3, var=self.is_letters_enabled)
         self.letters_check.select()
 
         self.is_marks_enabled = tk.BooleanVar()
-        self.marks_label, self.marks_check = self._set_option_field(text='Специальные символы: ',
-                                                                    row=4, var=self.is_marks_enabled)
+        self.marks_label, self.marks_check = self._set_option_field(
+            text='Специальные символы:', row=4, var=self.is_marks_enabled)
         self.grid_rowconfigure(4, pad=30)
+
+        self.is_desktop_save = tk.BooleanVar()
+        self.desktop_label, self.desktop_check = self._set_option_field(
+            text='Сохранить на рабочем столе:', row=5, var=self.is_desktop_save)
 
     def _set_entry_field(self, *, text: str, row: int) -> tuple[tk.Label, tk.Entry]:
         label = tk.Label(self, text=text, font=config.FONT_STYLE, bg=config.MAIN_COLOR)
@@ -109,6 +114,10 @@ class GenerationFrame(tk.Frame):
     def is_marks_enabled(self) -> bool:
         return self._main_frame.is_marks_enabled.get()
 
+    @property
+    def is_desktop(self) -> bool:
+        return self._main_frame.is_desktop_save.get()
+
     def _set_display_entry(self):
         self.display_entry = tk.Entry(self, bg=config.FILL_COLOR, font=config.FONT_STYLE, width=40)
         self.display_entry.pack(pady=20)
@@ -135,7 +144,7 @@ def generate_passwords(frame: GenerationFrame) -> str:
     try:
         passwords = generate_multiple_passwords(frame.quantity, frame.length, frame.is_digits_enabled,
                                                 frame.is_letters_enabled, frame.is_marks_enabled)
-        dump_passwords(passwords)
+        dump_passwords(passwords, on_desktop=frame.is_desktop)
         msg = f'Пароли выгружены в файл'
     except ValidationError:
         msg = 'Укажите целое положительное число'
@@ -150,13 +159,14 @@ class App(tk.Tk):
     """
         Main application window.
     """
+
     def __init__(self):
         super().__init__()
         self._window_configuration()
         self.main_frame = MainFrame()
         self.main_frame.grid(row=0, column=0)
-        self.gen_frame = GenerationFrame(self.main_frame)
-        self.gen_frame.grid(row=1, column=0)
+        self.generation_frame = GenerationFrame(self.main_frame)
+        self.generation_frame.grid(row=1, column=0)
 
     def _window_configuration(self):
         self.geometry(config.WINDOW_SIZE)
